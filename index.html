@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>College Confession Page</title>
+  <link rel="stylesheet" href="professional.css">
+</head>
+<body>
+  <header>
+    <h1 class="page-title">IILM University Confession Page</h1>
+    <div id="user-auth" style="position: absolute; top: 20px; right: 20px;">
+      <button id="login-btn">Login</button>
+      <button id="logout-btn" style="display:none;">Logout</button>
+      <span id="user-info" style="display:none; margin-left: 10px;"></span>
+    </div>
+  </header>
+
+  <!-- Overlay for expanded post view -->
+  <div id="post-overlay" class="post-overlay" style="display:none;">
+    <div class="post-overlay-content full-screen-modal">
+      <button id="close-post-overlay" class="close-overlay">&times;</button>
+      <h2 id="overlay-post-title"></h2>
+      <p id="overlay-post-nickname" class="post-nickname small-text"></p>
+      <div id="overlay-post-content"></div>
+      <div id="overlay-post-actions" class="detailed-actions"></div>
+      <h3>Comments</h3>
+      <div id="overlay-comments-section">
+        <div id="overlay-comment-list"></div>
+        <div id="overlay-comment-input">
+          <textarea id="overlay-comment-textarea" placeholder="Add a comment..."></textarea>
+          <button id="overlay-comment-button">Comment</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- Navigation Links -->
+<header>
+  <nav>
+    <ul>
+      <li><a href="#" onclick="showSection('confessions-section')">Confessions</a></li>
+      <li><a href="#" onclick="showSection('college-updates-section')">College Updates</a></li>
+      <li><a href="#" onclick="showSection('relationships-updates-section')">Official Relationships Updates</a></li>
+      <li><a href="#" onclick="showSection('exam-confessions-section')">Related to Examination</a></li>
+      <li><a href="#" onclick="showSection('ask-questions-section')">Ask Confession Questions</a></li>
+      <li><a href="#" onclick="showSection('polls-section')">Anonymous Poll</a></li>
+    </ul>
+  </nav>
+</header>
+
+<!-- Confessions Section -->
+<section id="confessions-section" class="content-section active">
+  <h2>Confessions</h2>
+  <button onclick="toggleForm('confessions-form')">Post Confession</button>
+  <div id="confessions-form" style="display: none;">
+    <form id="confession-form">
+      <input type="text" id="confession-title" placeholder="Title" required />
+      <input type="text" id="nickname" placeholder="Your nickname (optional)" />
+      <textarea id="confession-text" placeholder="Write your confession here..." required></textarea>
+      <input type="file" id="image-upload" accept="image/*" />
+      <input type="text" id="gif-url" placeholder="GIF URL" />
+      <button type="submit">Post Confession</button>
+    </form>
+  </div>
+  <div id="confessions-list"></div>
+</section>
+
+<!-- College Updates Section -->
+<section id="college-updates-section" class="content-section">
+  <h2>College Updates</h2>
+  <button onclick="toggleForm('college-updates-form')">Post Update</button>
+  <div id="college-updates-form" style="display: none;">
+    <form id="college-update-form">
+      <input type="text" id="college-update-title" placeholder="Title" required />
+      <input type="text" id="update-nickname" placeholder="Your nickname (optional)" />
+      <textarea id="update-text" placeholder="Write your update here..." required></textarea>
+      <input type="file" id="update-image-upload" accept="image/*" />
+      <button type="submit">Post Update</button>
+    </form>
+  </div>
+  <div id="college-updates-list"></div>
+</section>
+
+<!-- Official Relationships Updates Section -->
+<section id="relationships-updates-section" class="content-section">
+  <h2>Official Relationships Updates</h2>
+  <button onclick="toggleForm('relationships-updates-form')">Post Relationship Update</button>
+  <div id="relationships-updates-form" style="display: none;">
+    <form id="relationships-update-form">
+      <input type="text" id="relationships-nickname" placeholder="Your nickname (optional)" />
+      <textarea id="relationships-text" placeholder="Write your relationship update here..." required></textarea>
+      <input type="file" id="relationships-image-upload" accept="image/*" />
+      <button type="submit">Post Relationship Update</button>
+    </form>
+  </div>
+  <div id="relationships-updates-list"></div>
+</section>
+<!-- Related to Examination Section -->
+<section id="exam-confessions-section" class="content-section">
+  <h2>Related to Examination</h2>
+  <button onclick="toggleForm('exam-confessions-form')">Post Exam Confession</button>
+  <div id="exam-confessions-form" style="display: none;">
+    <form id="exam-confession-form">
+      <input type="text" id="exam-nickname" placeholder="Your nickname (optional)" />
+      <textarea id="exam-text" placeholder="Write your exam confession here..." required></textarea>
+      <input type="file" id="exam-image-upload" accept="image/*" />
+      <button type="submit">Post Exam Confession</button>
+    </form>
+  </div>
+  <div id="exam-confessions-list"></div>
+</section>
+
+<!-- Ask Confession Questions Section -->
+<section id="ask-questions-section" class="content-section">
+  <h2>Ask Confession Questions</h2>
+  <button id="open-ask-modal-btn">Ask a Question</button>
+
+  <!-- Modal for Ask Question -->
+  <div id="ask-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <span id="close-ask-modal" class="close">&times;</span>
+      <form id="ask-question-form-modal">
+        <input type="text" id="question-text-modal" placeholder="Ask your anonymous question..." required />
+        <button type="submit">Ask Question</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="questions-list"></div>
+</section>
+
+<!-- Anonymous Poll Section -->
+<section id="polls-section" class="content-section">
+  <h2>Anonymous Poll</h2>
+  <button id="open-poll-modal-btn">Create a Poll</button>
+
+  <!-- Modal for Poll Creation -->
+  <div id="poll-modal" class="modal" style="display:none;">
+bhai     <div class="modal-content">
+      <span id="close-poll-modal" class="close">&times;</span>
+      <form id="poll-form-modal">
+        <input type="text" id="poll-question" placeholder="Enter your poll question" required />
+        <div id="poll-options-container">
+          <input type="text" name="poll-option" placeholder="Option 1" required />
+          <input type="text" name="poll-option" placeholder="Option 2" required />
+        </div>
+        <button type="button" id="add-option-btn">Add Option</button>
+        <button type="submit">Create Poll</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="poll-results"></div>
+</section>
+
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="script.js"></script>
+
+</body>
+</html>
