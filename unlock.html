@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login - IILM CONFESSIONS</title>
+  <link rel="stylesheet" href="professional.css" />
+  <style>
+    body, html {
+      height: 100%;
+      margin: 0;
+      font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      background: linear-gradient(135deg, #5865f2 0%, #4752c4 100%);
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+    .container {
+      background-color: #2f3136;
+      padding: 40px 50px;
+      border-radius: 8px;
+      max-width: 600px;
+      width: 100%;
+      box-sizing: border-box;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+      text-align: left;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    p.subtitle {
+      font-size: 1rem;
+      margin-bottom: 30px;
+      color: #b9bbbe;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #b9bbbe;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+    input[type="text"],
+    input[type="password"] {
+      padding: 12px 15px;
+      border-radius: 4px;
+      border: none;
+      font-size: 1rem;
+      box-sizing: border-box;
+      background-color: #202225;
+      color: #dcddde;
+      outline: none;
+      transition: background-color 0.3s ease;
+    }
+    input[type="text"]:focus,
+    input[type="password"]:focus {
+      background-color: #2c2f33;
+      box-shadow: 0 0 0 2px #5865f2;
+    }
+    button {
+      background-color: #5865f2;
+      border: none;
+      padding: 14px 0;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      user-select: none;
+    }
+    button:hover {
+      background-color: #4752c4;
+    }
+    .forgot-password {
+      font-size: 0.875rem;
+      color: #5865f2;
+      margin-top: 5px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .forgot-password:hover {
+      text-decoration: underline;
+    }
+    .register-link {
+      font-size: 0.875rem;
+      color: #b9bbbe;
+    }
+    .register-link a {
+      color: #5865f2;
+      text-decoration: none;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .register-link a:hover {
+      text-decoration: underline;
+    }
+    #profile-setup-form {
+      display: none;
+      flex-direction: column;
+      gap: 15px;
+    }
+    #profile-setup-form.active {
+      display: flex;
+    }
+  </style>
+</head>
+<body>
+  <div class="container" role="main" aria-label="Login to IILM University Confession">
+    <h1>Login</h1>
+
+    <form id="login-form" aria-label="Login form">
+      <label for="login-username">Username</label>
+      <input type="text" id="login-username" name="login-username" placeholder="Enter your username" required autocomplete="username" />
+      <label for="login-password">Password</label>
+      <input type="password" id="login-password" name="login-password" placeholder="Enter your password" required autocomplete="current-password" />
+      <button type="submit" aria-label="Log In">Log In</button>
+      <p class="register-link">Don't have an account? <a href="#" id="google-signup-link" aria-label="Sign up with Google">Sign up with Google</a></p>
+    </form>
+
+    <form id="profile-setup-form" aria-label="Profile setup form">
+      <h2>Set up your profile</h2>
+      <label for="profile-username">Username</label>
+      <input type="text" id="profile-username" name="profile-username" placeholder="Enter your username" required />
+      <label for="profile-class">Class Name</label>
+      <input type="text" id="profile-class" name="profile-class" placeholder="Enter your class name" required />
+      <label for="profile-password">Password</label>
+      <input type="password" id="profile-password" name="profile-password" placeholder="Create a password" required />
+      <button type="submit">Save Profile</button>
+    </form>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDgyN1hGpAISGfOnApEKe_ny0o0ifvodL0",
+      authDomain: "whispers-b5caf.firebaseapp.com",
+      projectId: "whispers-b5caf",
+      storageBucket: "whispers-b5caf.firebasestorage.app",
+      messagingSenderId: "1043264807234",
+      appId: "1:1043264807234:web:eac888eedd9020841d68db",
+      measurementId: "G-90D24EMX1Q"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    const provider = new firebase.auth.GoogleAuthProvider();
+
+    let currentUser = null;
+
+    const loginForm = document.getElementById('login-form');
+    const profileSetupForm = document.getElementById('profile-setup-form');
+    const googleSignupLink = document.getElementById('google-signup-link');
+
+    // Show profile setup form and hide login form
+    function showProfileSetup() {
+      loginForm.style.display = 'none';
+      profileSetupForm.style.display = 'flex';
+    }
+
+    // Show login form and hide profile setup form
+    function showLoginForm() {
+      loginForm.style.display = 'flex';
+      profileSetupForm.style.display = 'none';
+    }
+
+    // On page load, check if user is logged in
+    auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        currentUser = user;
+        // Check if user profile exists
+        const profileDoc = await db.collection('userProfiles').doc(currentUser.uid).get();
+        if (!profileDoc.exists) {
+          showProfileSetup();
+        } else {
+          showLoginForm();
+        }
+      } else {
+        showLoginForm();
+      }
+    });
+
+    // Handle Google signup link click
+    googleSignupLink.addEventListener('click', async (e) => {
+      e.preventDefault();
+      try {
+        const result = await auth.signInWithPopup(provider);
+        currentUser = result.user;
+        if (currentUser) {
+          showProfileSetup();
+        }
+      } catch (error) {
+        console.error('Google login error:', error);
+        alert('Failed to login with Google.');
+      }
+    });
+
+    // Handle profile setup form submission
+    profileSetupForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('profile-username').value.trim().toLowerCase();
+      const className = document.getElementById('profile-class').value.trim();
+      const password = document.getElementById('profile-password').value.trim();
+
+      if (!username || !className || !password) {
+        alert('Please fill in all fields.');
+        return;
+      }
+
+      if (!currentUser) {
+        alert('User not logged in.');
+        return;
+      }
+
+      try {
+        // Check if profile already exists for this user
+        const profileDoc = await db.collection('userProfiles').doc(currentUser.uid).get();
+        if (profileDoc.exists) {
+          alert('This account already has a username and password set.');
+          return;
+        }
+
+        // Check if username already exists for another user
+        const usernameQuery = await db.collection('userProfiles').where('username', '==', username).get();
+        if (!usernameQuery.empty) {
+          alert('Username already taken. Please choose another.');
+          return;
+        }
+
+        await db.collection('userProfiles').doc(currentUser.uid).set({
+          username,
+          className,
+          password,
+          uid: currentUser.uid,
+          email: currentUser.email
+        });
+        alert('Profile saved successfully! Please login now.');
+        showLoginForm();
+      } catch (error) {
+        console.error('Error saving profile:', error);
+        alert('Failed to save profile.');
+      }
+    });
+
+    // Handle login form submission
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('login-username').value.trim().toLowerCase();
+      const password = document.getElementById('login-password').value.trim();
+
+      if (!username || !password) {
+        alert('Please fill in all fields.');
+        return;
+      }
+
+      try {
+        // Query userProfiles collection for matching username and password
+        const userQuery = await db.collection('userProfiles')
+          .where('username', '==', username)
+          .where('password', '==', password)
+          .get();
+
+        if (userQuery.empty) {
+          alert('Invalid username or password.');
+          return;
+        }
+
+        // User authenticated successfully
+        sessionStorage.setItem('postsUnlocked', 'true');
+        window.location.href = 'index.html';
+      } catch (error) {
+        console.error('Error during login:', error);
+        alert('Failed to login.');
+      }
+    });
+  </script>
+</body>
+</html>
