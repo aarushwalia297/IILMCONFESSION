@@ -35,6 +35,21 @@
     </div>
   </div>
 
+  <!-- Right side panel for modern post detail view -->
+  <div id="right-side-panel" class="right-side-panel" style="display:none;">
+    <button id="close-right-panel" class="close-right-panel" aria-label="Close">&times;</button>
+    <h2 id="right-panel-post-title"></h2>
+    <p id="right-panel-post-nickname" class="post-nickname small-text"></p>
+    <div id="right-panel-post-content"></div>
+    <div id="right-panel-post-actions" class="detailed-actions"></div>
+    <h3>Comments</h3>
+    <div id="right-panel-comment-list"></div>
+    <div id="right-panel-comment-input">
+      <textarea id="right-panel-comment-textarea" placeholder="Add a comment..."></textarea>
+      <button id="right-panel-comment-button">Comment</button>
+    </div>
+  </div>
+
 <!-- Navigation Links -->
 <header>
   <nav>
@@ -63,7 +78,7 @@
       <button type="submit">Post Confession</button>
     </form>
   </div>
-  <div id="confessions-list"></div>
+  <div id="confessions-list" style="display:none;"></div>
 </section>
 
 <!-- College Updates Section -->
@@ -79,7 +94,7 @@
       <button type="submit">Post Update</button>
     </form>
   </div>
-  <div id="college-updates-list"></div>
+  <div id="college-updates-list" style="display:none;"></div>
 </section>
 
 <!-- Official Relationships Updates Section -->
@@ -94,7 +109,7 @@
       <button type="submit">Post Relationship Update</button>
     </form>
   </div>
-  <div id="relationships-updates-list"></div>
+  <div id="relationships-updates-list" style="display:none;"></div>
 </section>
 <!-- Related to Examination Section -->
 <section id="exam-confessions-section" class="content-section">
@@ -108,7 +123,7 @@
       <button type="submit">Post Exam Confession</button>
     </form>
   </div>
-  <div id="exam-confessions-list"></div>
+  <div id="exam-confessions-list" style="display:none;"></div>
 </section>
 
 <!-- Ask Confession Questions Section -->
@@ -127,7 +142,7 @@
     </div>
   </div>
 
-  <div id="questions-list"></div>
+  <div id="questions-list" style="display:none;"></div>
 </section>
 
 <!-- Anonymous Poll Section -->
@@ -151,7 +166,7 @@ bhai     <div class="modal-content">
     </div>
   </div>
 
-  <div id="poll-results"></div>
+  <div id="poll-results" style="display:none;"></div>
 </section>
 
 
@@ -159,6 +174,33 @@ bhai     <div class="modal-content">
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <script src="script.js"></script>
+
+<script>
+window.onload = function() {
+    // Check if posts are unlocked
+  const postsUnlocked = sessionStorage.getItem('postsUnlocked') === 'true';
+
+  if (postsUnlocked) {
+    document.getElementById('confessions-list').style.display = 'block';
+    document.getElementById('college-updates-list').style.display = 'block';
+    document.getElementById('relationships-updates-list').style.display = 'block';
+    document.getElementById('exam-confessions-list').style.display = 'block';
+    document.getElementById('questions-list').style.display = 'block';
+    document.getElementById('poll-results').style.display = 'block';
+
+    // Load posts
+    loadConfessions();
+    loadCollegeUpdates();
+    loadRelationshipsUpdates();
+    loadExamConfessions();
+    loadQuestions();
+    loadPollResults();
+  } else {
+    // Redirect to unlock page if not unlocked
+    window.location.href = 'unlock.html';
+  }
+};
+</script>
 
 </body>
 </html>
