@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Confession Detail</title>
+  <link rel="stylesheet" href="professional.css" />
+  <style>
+    /* Additional styles for confession modal content */
+    .confession-text {
+      white-space: pre-wrap;
+      font-size: 1.3rem;
+      margin-bottom: 20px;
+      color: var(--text-dark-gentle);
+    }
+    .action-buttons {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 25px;
+    }
+    .action-buttons button {
+      background-color: var(--primary-adorable);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 25px;
+      font-weight: 700;
+      font-size: 1.1rem;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(255, 182, 193, 0.5);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: background-color 0.3s ease;
+    }
+    .action-buttons button:hover {
+      background-color: var(--secondary-adorable);
+    }
+    .action-buttons button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    .action-buttons button span.count {
+      font-weight: 700;
+      font-size: 1.1rem;
+    }
+    .close {
+      color: var(--primary-adorable);
+      position: absolute;
+      top: 20px;
+      right: 25px;
+      font-size: 48px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-shadow: 2px 2px 5px rgba(255, 182, 193, 0.5);
+      opacity: 0.9;
+      background: none;
+      border: none;
+    }
+    .close:hover,
+    .close:focus {
+      color: var(--secondary-adorable);
+      text-decoration: none;
+      transform: rotate(180deg) scale(1.1);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="modal" id="confessionModal" style="display: flex; z-index: 99999; background-color: rgba(0,0,0,0.8);">
+    <div class="modal-content neon-box" role="dialog" aria-modal="true" aria-labelledby="confessionTitle">
+      <button class="close" id="closeModalBtn" aria-label="Close">&times;</button>
+      <section id="confessionDisplay" aria-live="polite" aria-atomic="true">
+        Loading...
+      </section>
+      <div class="action-buttons" aria-label="Confession actions">
+        <button id="likeBtn" aria-pressed="false" aria-label="Like confession">❤️ Like <span class="count" id="likeCount">0</span></button>
+        <button id="dislikeBtn" aria-pressed="false" aria-label="Dislike confession">👎 Dislike <span class="count" id="dislikeCount">0</span></button>
+        <button id="shareBtn" aria-label="Share confession">🔗 Share</button>
+      </div>
+      <div class="comments-section" aria-label="Comments section">
+        <h3>Comments</h3>
+        <div class="comment-list" id="commentList" tabindex="0" aria-live="polite" aria-relevant="additions"></div>
+        <div class="comment-input">
+          <textarea id="commentInput" placeholder="Add a comment..." rows="3" aria-label="Add a comment"></textarea>
+          <button id="submitCommentBtn" aria-label="Submit comment">🌈 Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <style>
+    .neon-box {
+      position: relative;
+      margin: auto;
+      padding: 70px 80px;
+      border-radius: 25px;
+      width: 100%;
+      max-width: 800px;
+      background: var(--card-background-sweet);
+      box-shadow:
+        0 0 10px #ff69b4,
+        0 0 20px #ff1493,
+        0 0 30px #ff69b4,
+        0 0 40px #ff1493,
+        0 0 50px #ff69b4,
+        0 0 60px #ff1493,
+        0 0 70px #ff69b4;
+      border: 3px solid #ff1493;
+      color: var(--text-dark-gentle);
+      font-family: 'Quicksand', sans-serif;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      animation: popInModal 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+    }
+  </style>
+
+  <script type="module">
+    console.log("Modal script running");
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-app.js";
+    import { getFirestore, doc, getDoc, updateDoc, arrayUnion, onSnapshot, collection, addDoc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDgyN1hGpAISGfOnApEKe_ny0o0ifvodL0",
+      authDomain: "whispers-b5caf.firebaseapp.com",
+      projectId: "whispers-b5caf",
+      storageBucket: "whispers-b5caf.firebasestorage.app",
+      messagingSenderId: "1043264807234",
+      appId: "1:1043264807234:web:eac888eedd9020841d68db",
+      measurementId: "G-90D24EMX1Q"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const confessionDisplay = document.getElementById("confessionDisplay");
+    const closeModalBtn = document.getElementById("closeModalBtn");
+    const likeBtn = document.getElementById("likeBtn");
+    const dislikeBtn = document.getElementById("dislikeBtn");
+    const shareBtn = document.getElementById("shareBtn");
+    const likeCountSpan = document.getElementById("likeCount");
+    const dislikeCountSpan = document.getElementById("dislikeCount");
+    const commentList = document.getElementById("commentList");
+    const commentInput = document.getElementById("commentInput");
+    const submitCommentBtn = document.getElementById("submitCommentBtn");
+
+    const params = new URLSearchParams(window.location.search);
+    const confessionId = params.get("id");
+
+    let currentUserId = null; // To be set if user is logged in
+    let userLiked = false;
+    let userDisliked = false;
+
+    // Close modal button handler
+    closeModalBtn.addEventListener("click", () => {
+      window.history.back();
+    });
+
+    // Share button handler
+    shareBtn.addEventListener("click", async () => {
+      const shareUrl = window.location.href;
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: "Check out this confession",
+            url: shareUrl
+          });
+        } catch (err) {
+          alert("Sharing cancelled or failed.");
+        }
+      } else {
+        // Fallback: copy to clipboard
+        try {
+          await navigator.clipboard.writeText(shareUrl);
+          alert("Confession link copied to clipboard!");
+        } catch (err) {
+          alert("Failed to copy link.");
+        }
+      }
+    });
+
+    // Load confession data and UI
+    async function loadConfession() {
+      if (!confessionId) {
+        confessionDisplay.innerText = "Invalid confession ID.";
+        disableActionButtons();
+        return;
+      }
+      const docRef = doc(db, "confessions", confessionId);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        confessionDisplay.innerHTML = `<p class="confession-text">${data.text}</p>`;
+
+        // Initialize like/dislike counts
+        likeCountSpan.textContent = data.upvotes || 0;
+        dislikeCountSpan.textContent = data.downvotes || 0;
+
+        // Listen for real-time updates on likes/dislikes
+        onSnapshot(docRef, (doc) => {
+          if (doc.exists()) {
+            const updatedData = doc.data();
+            likeCountSpan.textContent = updatedData.upvotes || 0;
+            dislikeCountSpan.textContent = updatedData.downvotes || 0;
+          }
+        });
+
+        // Load comments
+        loadComments();
+
+        // Check user like/dislike status if user is logged in
+        // For demo, we assume user ID is stored in localStorage or null
+        currentUserId = localStorage.getItem("userId");
+        if (currentUserId) {
+          // Check if user liked or disliked
+          userLiked = data.likedBy?.includes(currentUserId) || false;
+          userDisliked = data.dislikedBy?.includes(currentUserId) || false;
+          updateLikeDislikeButtons();
+        }
+      } else {
+        confessionDisplay.innerText = "Confession not found.";
+        disableActionButtons();
+      }
+    }
+
+    function disableActionButtons() {
+      likeBtn.disabled = true;
+      dislikeBtn.disabled = true;
+      shareBtn.disabled = true;
+      submitCommentBtn.disabled = true;
+      commentInput.disabled = true;
+    }
+
+    function updateLikeDislikeButtons() {
+      likeBtn.setAttribute("aria-pressed", userLiked);
+      dislikeBtn.setAttribute("aria-pressed", userDisliked);
+      if (userLiked) {
+        likeBtn.classList.add("liked");
+      } else {
+        likeBtn.classList.remove("liked");
+      }
+      if (userDisliked) {
+        dislikeBtn.classList.add("liked");
+      } else {
+        dislikeBtn.classList.remove("liked");
+      }
+    }
+
+    // Like button click handler
+    likeBtn.addEventListener("click", async () => {
+      if (!currentUserId) {
+        alert("Please log in to like confessions.");
+        return;
+      }
+      const docRef = doc(db, "confessions", confessionId);
+      const docSnap = await getDoc(docRef);
+      if (!docSnap.exists()) return;
+
+      const data = docSnap.data();
+      let upvotes = data.upvotes || 0;
+      let downvotes = data.downvotes || 0;
+      let likedBy = data.likedBy || [];
+      let dislikedBy = data.dislikedBy || [];
+
+      if (userLiked) {
+        // Undo like
+        upvotes--;
+        likedBy = likedBy.filter(uid => uid !== currentUserId);
+        userLiked = false;
+      } else {
+        // Add like
+        upvotes++;
+        likedBy.push(currentUserId);
+        userLiked = true;
+
+        // If previously disliked, remove dislike
+        if (userDisliked) {
+          downvotes--;
+          dislikedBy = dislikedBy.filter(uid => uid !== currentUserId);
+          userDisliked = false;
+        }
+      }
+
+      await updateDoc(docRef, {
+        upvotes,
+        downvotes,
+        likedBy,
+        dislikedBy
+      });
+      updateLikeDislikeButtons();
+    });
+
+    // Dislike button click handler
+    dislikeBtn.addEventListener("click", async () => {
+      if (!currentUserId) {
+        alert("Please log in to dislike confessions.");
+        return;
+      }
+      const docRef = doc(db, "confessions", confessionId);
+      const docSnap = await getDoc(docRef);
+      if (!docSnap.exists()) return;
+
+      const data = docSnap.data();
+      let upvotes = data.upvotes || 0;
+      let downvotes = data.downvotes || 0;
+      let likedBy = data.likedBy || [];
+      let dislikedBy = data.dislikedBy || [];
+
+      if (userDisliked) {
+        // Undo dislike
+        downvotes--;
+        dislikedBy = dislikedBy.filter(uid => uid !== currentUserId);
+        userDisliked = false;
+      } else {
+        // Add dislike
+        downvotes++;
+        dislikedBy.push(currentUserId);
+        userDisliked = true;
+
+        // If previously liked, remove like
+        if (userLiked) {
+          upvotes--;
+          likedBy = likedBy.filter(uid => uid !== currentUserId);
+          userLiked = false;
+        }
+      }
+
+      await updateDoc(docRef, {
+        upvotes,
+        downvotes,
+        likedBy,
+        dislikedBy
+      });
+      updateLikeDislikeButtons();
+    });
+
+    // Load comments from Firestore
+    async function loadComments() {
+      commentList.innerHTML = "Loading comments...";
+      const commentsQuery = query(collection(db, "confessions", confessionId, "comments"), orderBy("createdAt", "asc"));
+      onSnapshot(commentsQuery, (snapshot) => {
+        commentList.innerHTML = "";
+        if (snapshot.empty) {
+          commentList.innerHTML = "<p>No comments yet. Be the first to comment!</p>";
+          return;
+        }
+        snapshot.forEach(doc => {
+          const comment = doc.data();
+          const commentElem = document.createElement("div");
+          commentElem.classList.add("comment");
+          commentElem.innerHTML = `<strong>${comment.username || "Anonymous"}:</strong> ${comment.text}`;
+          commentList.appendChild(commentElem);
+        });
+      });
+    }
+
+    // Submit comment handler
+    submitCommentBtn.addEventListener("click", async () => {
+      const text = commentInput.value.trim();
+      if (!text) {
+        alert("Comment cannot be empty.");
+        return;
+      }
+      if (!currentUserId) {
+        alert("Please log in to comment.");
+        return;
+      }
+      // For demo, username is stored in localStorage or fallback to Anonymous
+      const username = localStorage.getItem("username") || "Anonymous";
+
+      try {
+        await addDoc(collection(db, "confessions", confessionId, "comments"), {
+          text,
+          username,
+          createdAt: serverTimestamp()
+        });
+        commentInput.value = "";
+      } catch (err) {
+        alert("Failed to post comment.");
+      }
+    });
+
+    loadConfession();
+
+    // Ensure modal is visible on page load
+    document.getElementById('confessionModal').style.display = 'flex';
+  </script>
+</body>
+</html>
