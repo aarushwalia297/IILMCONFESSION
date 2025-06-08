@@ -42,6 +42,8 @@ logoutBtn.addEventListener('click', () => {
       userInfoSpan.style.display = 'none';
       loginBtn.style.display = 'inline';
       logoutBtn.style.display = 'none';
+      // Clear unlock flag on logout
+      sessionStorage.removeItem('postsUnlocked');
     })
     .catch((error) => {
       console.error('Logout error:', error);
@@ -72,12 +74,169 @@ function showSection(sectionId) {
 
   const sectionToShow = document.getElementById(sectionId);
   sectionToShow.classList.add('active');
+
+  // Show or hide relevant lists based on section
+  if (sectionId === 'ask-questions-section') {
+    document.getElementById('questions-list').style.display = 'block';
+  } else {
+    document.getElementById('questions-list').style.display = 'none';
+  }
+
+  if (sectionId === 'polls-section') {
+    document.getElementById('poll-results').style.display = 'block';
+  } else {
+    document.getElementById('poll-results').style.display = 'none';
+  }
+
+  if (sectionId === 'confessions-section') {
+    document.getElementById('confessions-list').style.display = 'block';
+  } else {
+    document.getElementById('confessions-list').style.display = 'none';
+  }
+
+  if (sectionId === 'college-updates-section') {
+    document.getElementById('college-updates-list').style.display = 'block';
+  } else {
+    document.getElementById('college-updates-list').style.display = 'none';
+  }
+
+  if (sectionId === 'relationships-updates-section') {
+    document.getElementById('relationships-updates-list').style.display = 'block';
+  } else {
+    document.getElementById('relationships-updates-list').style.display = 'none';
+  }
+
+  if (sectionId === 'exam-confessions-section') {
+    document.getElementById('exam-confessions-list').style.display = 'block';
+  } else {
+    document.getElementById('exam-confessions-list').style.display = 'none';
+  }
 }
 
 // Toggle Post Form Visibility
 function toggleForm(formId) {
   const form = document.getElementById(formId);
   form.style.display = form.style.display === 'block' ? 'none' : 'block';
+}
+
+// Load Poll Results
+function loadPollResults() {
+  const pollResults = document.getElementById('poll-results');
+  pollResults.innerHTML = '';
+
+  db.collection('polls').orderBy('createdAt', 'desc').limit(5).get().then(querySnapshot => {
+    querySnapshot.forEach(doc => {
+      const poll = doc.data();
+      const div = document.createElement('div');
+      div.classList.add('poll');
+
+      let optionsHtml = '';
+      poll.options.forEach((opt, index) => {
+        optionsHtml += `
+          <label>
+            <input type="radio" name="poll-${doc.id}" value="${index}" />
+            ${opt.option}: ${opt.votes} votes
+          </label><br/>
+        `;
+      });
+
+      div.innerHTML = `
+        <h3>${poll.question}</h3>
+        ${optionsHtml}
+        <button class="vote-btn" data-poll-id="${doc.id}">Vote</button>
+      `;
+
+      pollResults.appendChild(div);
+    });
+
+    // Add event listeners for vote buttons
+    const voteButtons = pollResults.querySelectorAll('.vote-btn');
+    voteButtons.forEach(button => {
+      button.addEventListener('click', async () => {
+        const pollId = button.getAttribute('data-poll-id');
+        const selectedOption = pollResults.querySelector(`input[name="poll-${pollId}"]:checked`);
+        if (!selectedOption) {
+          alert('Please select an option to vote.');
+          return;
+        }
+        const optionIndex = parseInt(selectedOption.value);
+
+        const pollRef = db.collection('polls').doc(pollId);
+        const pollDoc = await pollRef.get();
+        if (!pollDoc.exists) {
+          alert('Poll not found.');
+          return;
+        }
+        const pollData = pollDoc.data();
+
+        // Increment vote count for selected option
+        const updatedOptions = pollData.options.map((opt, idx) => {
+          if (idx === optionIndex) {
+            return { ...opt, votes: (opt.votes || 0) + 1 };
+          }
+          return opt;
+        });
+
+        await pollRef.update({ options: updatedOptions });
+        alert('Vote recorded successfully!');
+        loadPollResults(); // Refresh poll results
+      });
+    });
+  });
+}
+
+// Update loadQuestions to show question text as post header instead of "Anonymous"
+function loadQuestions() {
+  const questionsList = document.getElementById('questions-list');
+  questionsList.innerHTML = '';
+
+  db.collection('questions').orderBy('createdAt', 'desc').onSnapshot(snapshot => {
+    questionsList.innerHTML = '';
+    snapshot.forEach(doc => {
+      const question = doc.data();
+      const div = document.createElement('div');
+      div.innerHTML = `
+        <div class="post" data-id="${doc.id}">
+          <div class="post-header clickable">${question.question}</div>
+          <small>${new Date(question.createdAt.seconds * 1000).toLocaleString()}</small>
+          <div class="post-content" style="display:none;">
+            <p>${question.question}</p>
+          </div>
+          <div class="post-actions" style="display:none;">
+            <div class="like-button" data-liked="false">❤️ <span class="like-count">${question.upvotes || 0}</span></div>
+          </div>
+          <div class="comments-section" style="display:none;">
+            <div class="comment-list"></div>
+            <div class="comment-input">
+              <textarea placeholder="Add a comment..."></textarea>
+              <button>Comment</button>
+            </div>
+          </div>
+        </div>
+      `;
+      questionsList.appendChild(div);
+      setupPostInteractions(div, 'questions', doc.id);
+
+      // Add click event to toggle content and comments
+      const postHeader = div.querySelector('.post-header');
+      const postContent = div.querySelector('.post-content');
+      const postActions = div.querySelector('.post-actions');
+      const commentsSection = div.querySelector('.comments-section');
+
+      postHeader.addEventListener('click', () => {
+        const isVisible = postContent.style.display === 'block';
+        if (isVisible) {
+          postContent.style.display = 'none';
+          postActions.style.display = 'none';
+          commentsSection.style.display = 'none';
+        } else {
+          postContent.style.display = 'block';
+          postActions.style.display = 'block';
+          commentsSection.style.display = 'block';
+        }
+      });
+    });
+  });
 }
 
 // Post Confession Logic
@@ -146,7 +305,7 @@ function loadConfessions() {
       div.innerHTML = `
         <div class="post" data-id="${doc.id}">
           <div class="post-header clickable">${confession.title || 'Untitled'}</div>
-          <small class="post-nickname-small">${confession.nickname || 'Anonymous'}</small>
+      <small class="post-nickname-small">Posted by: <strong>${confession.nickname && confession.nickname.trim() !== '' ? confession.nickname : 'Anonymous'}</strong></small>
         </div>
       `;
       confessionsList.appendChild(div);
@@ -673,10 +832,11 @@ function setupPostInteractions(postElement, collectionName, docId) {
     commentList.innerHTML = '';
     snapshot.forEach(doc => {
       const comment = doc.data();
-      const commentDiv = document.createElement('div');
-      commentDiv.classList.add('comment');
-      commentDiv.innerHTML = `<strong>${comment.nickname || 'Anonymous'}</strong>: ${comment.text}`;
-      commentList.appendChild(commentDiv);
+        const commentDiv = document.createElement('div');
+        commentDiv.classList.add('comment');
+        const displayName = comment.nickname && comment.nickname.trim() !== '' ? comment.nickname : 'Anonymous';
+        commentDiv.innerHTML = `<strong>${displayName}</strong>: ${comment.text}`;
+        commentList.appendChild(commentDiv);
     });
   });
 
@@ -744,10 +904,10 @@ async function openPostDetailView(collectionName, docId) {
     }
     const post = docSnap.data();
 
-    // Populate modal elements
-    document.getElementById('overlay-post-title').textContent = post.title || 'Untitled';
-    document.getElementById('overlay-post-nickname').textContent = post.nickname || 'Anonymous';
-    const contentDiv = document.getElementById('overlay-post-content');
+    // Populate right side panel elements
+    document.getElementById('right-panel-post-title').textContent = post.title || 'Untitled';
+    document.getElementById('right-panel-post-nickname').textContent = post.nickname || 'Anonymous';
+    const contentDiv = document.getElementById('right-panel-post-content');
     contentDiv.innerHTML = `<p>${post.text}</p>`;
     if (post.imageUrl) {
       const img = document.createElement('img');
@@ -767,15 +927,15 @@ async function openPostDetailView(collectionName, docId) {
     }
 
     // Setup actions
-    const actionsDiv = document.getElementById('overlay-post-actions');
+    const actionsDiv = document.getElementById('right-panel-post-actions');
     actionsDiv.innerHTML = `
-      <button id="modal-like-button" aria-label="Like post">👍 <span id="modal-like-count">${post.upvotes || 0}</span></button>
-      <button id="modal-dislike-button" aria-label="Dislike post">👎 <span id="modal-dislike-count">${post.downvotes || 0}</span></button>
-      <button id="modal-share-button" aria-label="Share post">🔗 Share</button>
+      <button id="right-panel-like-button" aria-label="Like post">👍 <span id="right-panel-like-count">${post.upvotes || 0}</span></button>
+      <button id="right-panel-dislike-button" aria-label="Dislike post">👎 <span id="right-panel-dislike-count">${post.downvotes || 0}</span></button>
+      <button id="right-panel-share-button" aria-label="Share post">🔗 Share</button>
     `;
 
     // Load comments
-    const commentList = document.getElementById('overlay-comment-list');
+    const commentList = document.getElementById('right-panel-comment-list');
     commentList.innerHTML = '';
     db.collection(collectionName).doc(docId).collection('comments').orderBy('createdAt', 'asc').onSnapshot(snapshot => {
       commentList.innerHTML = '';
@@ -788,28 +948,28 @@ async function openPostDetailView(collectionName, docId) {
       });
     });
 
-    // Show modal
-    const modal = document.getElementById('post-overlay');
-    modal.style.display = 'flex';
+    // Show right side panel
+    const panel = document.getElementById('right-side-panel');
+    panel.style.display = 'flex';
 
     // Like button functionality
-    const modalLikeButton = document.getElementById('modal-like-button');
-    modalLikeButton.onclick = async () => {
-      const liked = modalLikeButton.getAttribute('data-liked') === 'true';
-      const likeCountSpan = document.getElementById('modal-like-count');
+    const likeButton = document.getElementById('right-panel-like-button');
+    likeButton.onclick = async () => {
+      const liked = likeButton.getAttribute('data-liked') === 'true';
+      const likeCountSpan = document.getElementById('right-panel-like-count');
       let likeCount = parseInt(likeCountSpan.textContent);
 
       if (liked) {
         likeCount--;
-        modalLikeButton.setAttribute('data-liked', 'false');
-        modalLikeButton.classList.remove('liked');
+        likeButton.setAttribute('data-liked', 'false');
+        likeButton.classList.remove('liked');
         await docRef.update({
           upvotes: firebase.firestore.FieldValue.increment(-1)
         });
       } else {
         likeCount++;
-        modalLikeButton.setAttribute('data-liked', 'true');
-        modalLikeButton.classList.add('liked');
+        likeButton.setAttribute('data-liked', 'true');
+        likeButton.classList.add('liked');
         await docRef.update({
           upvotes: firebase.firestore.FieldValue.increment(1)
         });
@@ -817,18 +977,67 @@ async function openPostDetailView(collectionName, docId) {
       likeCountSpan.textContent = likeCount;
     };
 
+    // Dislike button functionality
+    const dislikeButton = document.getElementById('right-panel-dislike-button');
+    dislikeButton.onclick = async () => {
+      const disliked = dislikeButton.getAttribute('data-disliked') === 'true';
+      const dislikeCountSpan = document.getElementById('right-panel-dislike-count');
+      let dislikeCount = parseInt(dislikeCountSpan.textContent);
+
+      if (disliked) {
+        dislikeCount--;
+        dislikeButton.setAttribute('data-disliked', 'false');
+        dislikeButton.classList.remove('disliked');
+        await docRef.update({
+          downvotes: firebase.firestore.FieldValue.increment(-1)
+        });
+      } else {
+        dislikeCount++;
+        dislikeButton.setAttribute('data-disliked', 'true');
+        dislikeButton.classList.add('disliked');
+        await docRef.update({
+          downvotes: firebase.firestore.FieldValue.increment(1)
+        });
+      }
+      dislikeCountSpan.textContent = dislikeCount;
+    };
+
     // Share button functionality
-    const modalShareButton = document.getElementById('modal-share-button');
-    modalShareButton.onclick = () => {
+    const shareButton = document.getElementById('right-panel-share-button');
+    shareButton.onclick = () => {
       const url = window.location.href + `#post-${docId}`;
       navigator.clipboard.writeText(url).then(() => {
         alert('Post URL copied to clipboard!');
       });
     };
 
-    // Close modal button
-    document.getElementById('close-post-overlay').onclick = () => {
-      modal.style.display = 'none';
+    // Close right side panel button
+    document.getElementById('close-right-panel').onclick = () => {
+      panel.style.display = 'none';
+    };
+
+    // Comment submission
+    const commentInput = document.getElementById('right-panel-comment-textarea');
+    const commentButton = document.getElementById('right-panel-comment-button');
+    commentButton.onclick = async () => {
+      const text = commentInput.value.trim();
+      if (!text) {
+        alert('Comment cannot be empty!');
+        return;
+      }
+      try {
+        // Use nickname from localStorage or default to 'Anonymous'
+        const nickname = localStorage.getItem('username') || 'Anonymous';
+        await db.collection(collectionName).doc(docId).collection('comments').add({
+          text: text,
+          nickname: nickname,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        commentInput.value = '';
+      } catch (error) {
+        console.error('Error posting comment:', error);
+        alert('Failed to post comment.');
+      }
     };
 
   } catch (error) {
