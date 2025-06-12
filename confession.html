@@ -81,11 +81,11 @@
       </div>
       <div class="comments-section" aria-label="Comments section">
         <h3>Comments</h3>
-        <div class="comment-list" id="commentList" tabindex="0" aria-live="polite" aria-relevant="additions"></div>
-        <div class="comment-input">
-          <textarea id="commentInput" placeholder="Add a comment..." rows="3" aria-label="Add a comment"></textarea>
-          <button id="submitCommentBtn" aria-label="Submit comment">🌈 Send</button>
+        <div class="comment-input" style="margin-bottom: 20px;">
+          <textarea id="commentInput" placeholder="Add a comment..." rows="8" aria-label="Add a comment" style="padding: 18px 22px; border-radius: 30px; font-size: 1.2rem; resize: vertical; box-shadow: 0 0 10px var(--neon-cyan), inset 0 0 20px var(--neon-cyan);"></textarea>
+          <button id="submitCommentBtn" aria-label="Submit comment" style="margin-top: 15px; padding: 14px 30px; border-radius: 40px; font-weight: 900; font-size: 1.2rem; color: var(--neon-pink); cursor: pointer; text-transform: uppercase; letter-spacing: 3px; box-shadow: 0 0 10px var(--neon-pink), 0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink); transition: all 0.3s ease-in-out;">🌈 Send</button>
         </div>
+        <div class="comment-list" id="commentList" tabindex="0" aria-live="polite" aria-relevant="additions" style="max-height: 500px; overflow-y: auto; padding: 15px 20px; background-color: #111111cc; border-radius: 20px;"></div>
       </div>
     </div>
   </div>
@@ -353,6 +353,8 @@
           commentElem.innerHTML = `<strong>${comment.username || "Anonymous"}:</strong> ${comment.text}`;
           commentList.appendChild(commentElem);
         });
+        // Scroll to bottom after loading comments
+        commentList.scrollTop = commentList.scrollHeight;
       });
     }
 
@@ -361,7 +363,7 @@
       const text = commentInput.value.trim();
       if (!text) {
         alert("Comment cannot be empty.");
-        return;
+        return; 
       }
       if (!currentUserId) {
         alert("Please log in to comment.");
@@ -377,6 +379,8 @@
           createdAt: serverTimestamp()
         });
         commentInput.value = "";
+        // Scroll to bottom after submitting comment
+        commentList.scrollTop = commentList.scrollHeight;
       } catch (err) {
         alert("Failed to post comment.");
       }
