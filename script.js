@@ -224,16 +224,7 @@ function loadQuestions() {
       const commentsSection = div.querySelector('.comments-section');
 
       postHeader.addEventListener('click', () => {
-        const isVisible = postContent.style.display === 'block';
-        if (isVisible) {
-          postContent.style.display = 'none';
-          postActions.style.display = 'none';
-          commentsSection.style.display = 'none';
-        } else {
-          postContent.style.display = 'block';
-          postActions.style.display = 'block';
-          commentsSection.style.display = 'block';
-        }
+        openPostDetailView('collegeUpdates', doc.id);
       });
     });
   });
@@ -371,7 +362,7 @@ function loadCollegeUpdates() {
       const div = document.createElement('div');
       div.innerHTML = `
         <div class="post" data-id="${doc.id}">
-          <div class="post-header clickable">${update.nickname || 'Anonymous'}</div>
+          <div class="post-header clickable">${update.title || 'Untitled'}</div>
           <small>${new Date(update.createdAt.seconds * 1000).toLocaleString()}</small>
           <div class="post-content" style="display:none;">
             <p>${update.text}</p>
@@ -466,7 +457,7 @@ function loadRelationshipsUpdates() {
       const div = document.createElement('div');
       div.innerHTML = `
         <div class="post" data-id="${doc.id}">
-          <div class="post-header clickable">${update.nickname || 'Anonymous'}</div>
+          <div class="post-header clickable">${update.title || 'Untitled'}</div>
           <small>${new Date(update.createdAt.seconds * 1000).toLocaleString()}</small>
           <div class="post-content" style="display:none;">
             <p>${update.text}</p>
@@ -567,7 +558,7 @@ function loadExamConfessions() {
       const div = document.createElement('div');
       div.innerHTML = `
         <div class="post" data-id="${doc.id}">
-          <div class="post-header clickable">${examConfession.nickname || 'Anonymous'}</div>
+          <div class="post-header clickable">${examConfession.title || 'Untitled'}</div>
           <small>${new Date(examConfession.createdAt.seconds * 1000).toLocaleString()}</small>
           <div class="post-content" style="display:none;">
             <p>${examConfession.text}</p>
@@ -805,17 +796,89 @@ function loadPollResults() {
   db.collection('polls').orderBy('createdAt', 'desc').limit(5).get().then(querySnapshot => {
     querySnapshot.forEach(doc => {
       const poll = doc.data();
+      const pollId = doc.id;
       const div = document.createElement('div');
       div.classList.add('poll');
-      let optionsHtml = '';
-      poll.options.forEach((opt, index) => {
-        optionsHtml += `<p>${opt.option}: ${opt.votes} votes</p>`;
-      });
-      div.innerHTML = `
-        <h3>${poll.question}</h3>
-        ${optionsHtml}
-      `;
-      pollResults.appendChild(div);
+
+      // Check if user has voted on this poll
+      const votedPolls = JSON.parse(sessionStorage.getItem('votedPolls') || '{}');
+      const hasVoted = votedPolls[pollId] === true;
+
+      if (!hasVoted) {
+        // Show options as radio buttons and vote button
+        let optionsHtml = '';
+        poll.options.forEach((opt, index) => {
+          optionsHtml += `
+            <label>
+              <input type="radio" name="poll-${pollId}" value="${index}" />
+              ${opt.option}
+            </label><br/>
+          `;
+        });
+
+        div.innerHTML = `
+          <h3>${poll.question}</h3>
+          ${optionsHtml}
+          <button class="vote-btn" data-poll-id="${pollId}">Vote</button>
+        `;
+
+        pollResults.appendChild(div);
+
+        // Add event listener for vote button
+        const voteButton = div.querySelector('.vote-btn');
+        voteButton.addEventListener('click', async () => {
+          const selectedOption = div.querySelector(`input[name="poll-${pollId}"]:checked`);
+          if (!selectedOption) {
+            alert('Please select an option to vote.');
+            return;
+          }
+          const optionIndex = parseInt(selectedOption.value);
+
+          const pollRef = db.collection('polls').doc(pollId);
+          const pollDoc = await pollRef.get();
+          if (!pollDoc.exists) {
+            alert('Poll not found.');
+            return;
+          }
+          const pollData = pollDoc.data();
+
+          // Increment vote count for selected option
+          const updatedOptions = pollData.options.map((opt, idx) => {
+            if (idx === optionIndex) {
+              return { ...opt, votes: (opt.votes || 0) + 1 };
+            }
+            return opt;
+          });
+
+          await pollRef.update({ options: updatedOptions });
+
+          // Mark poll as voted in sessionStorage
+          votedPolls[pollId] = true;
+          sessionStorage.setItem('votedPolls', JSON.stringify(votedPolls));
+
+          alert('Vote recorded successfully!');
+
+          // Reload poll results to show percentages
+          loadPollResults();
+        });
+
+      } else {
+        // Show options with vote percentages
+        const totalVotes = poll.options.reduce((sum, opt) => sum + (opt.votes || 0), 0);
+        let optionsHtml = '';
+        poll.options.forEach(opt => {
+          const percentage = totalVotes > 0 ? ((opt.votes || 0) / totalVotes * 100).toFixed(1) : 0;
+          optionsHtml += `<p>${opt.option}: ${percentage}% (${opt.votes || 0} votes)</p>`;
+        });
+
+        div.innerHTML = `
+          <h3>${poll.question}</h3>
+          ${optionsHtml}
+          <p><em>You have already voted on this poll.</em></p>
+        `;
+
+        pollResults.appendChild(div);
+      }
     });
   });
 }
@@ -829,15 +892,115 @@ function setupPostInteractions(postElement, collectionName, docId) {
 
   // Load existing comments for this post
   db.collection(collectionName).doc(docId).collection('comments').orderBy('createdAt', 'asc').onSnapshot(snapshot => {
+    // Use correct comment list container based on context
+    let commentList = document.querySelector('.comment-list');
+    if (!commentList) {
+      commentList = document.getElementById('overlay-comment-list') || document.getElementById('right-panel-comment-list');
+    }
+    if (!commentList) {
+      console.error('Comment list container not found');
+      return;
+    }
     commentList.innerHTML = '';
+
+    // Build a map of comments by id
+    const commentsById = {};
+    const rootComments = [];
+
     snapshot.forEach(doc => {
-      const comment = doc.data();
+      const comment = { id: doc.id, ...doc.data(), replies: [] };
+      commentsById[comment.id] = comment;
+    });
+
+    // Organize comments into tree structure
+    Object.values(commentsById).forEach(comment => {
+      if (comment.parentCommentId) {
+        if (commentsById[comment.parentCommentId]) {
+          commentsById[comment.parentCommentId].replies.push(comment);
+        } else {
+          rootComments.push(comment);
+        }
+      } else {
+        rootComments.push(comment);
+      }
+    });
+
+    // Recursive function to render comments and replies
+    function renderComments(comments, container, level = 0) {
+      console.log(`Rendering ${comments.length} comments at level ${level}`);
+      comments.forEach(comment => {
         const commentDiv = document.createElement('div');
         commentDiv.classList.add('comment');
+        commentDiv.style.marginLeft = `${level * 20}px`;
+
         const displayName = comment.nickname && comment.nickname.trim() !== '' ? comment.nickname : 'Anonymous';
-        commentDiv.innerHTML = `<strong>${displayName}</strong>: ${comment.text}`;
-        commentList.appendChild(commentDiv);
-    });
+
+        commentDiv.innerHTML = `
+          <strong>${displayName}</strong>: ${comment.text}
+          <button class="reply-btn" style="margin-left: 10px; font-size: 0.8rem;">Reply</button>
+          <div class="reply-input-container" style="display:none; margin-top: 5px;">
+            <textarea class="reply-textarea" rows="2" placeholder="Write a reply..."></textarea>
+            <button class="submit-reply-btn">Submit</button>
+            <button class="cancel-reply-btn">Cancel</button>
+          </div>
+        `;
+
+        container.appendChild(commentDiv);
+
+        // Reply button event
+        const replyBtn = commentDiv.querySelector('.reply-btn');
+        const replyInputContainer = commentDiv.querySelector('.reply-input-container');
+        const submitReplyBtn = commentDiv.querySelector('.submit-reply-btn');
+        const cancelReplyBtn = commentDiv.querySelector('.cancel-reply-btn');
+        const replyTextarea = commentDiv.querySelector('.reply-textarea');
+
+        replyBtn.addEventListener('click', () => {
+          replyInputContainer.style.display = 'block';
+          replyBtn.style.display = 'none';
+          replyTextarea.focus();
+        });
+
+        cancelReplyBtn.addEventListener('click', () => {
+          replyInputContainer.style.display = 'none';
+          replyBtn.style.display = 'inline';
+          replyTextarea.value = '';
+        });
+
+        submitReplyBtn.addEventListener('click', async () => {
+          const replyText = replyTextarea.value.trim();
+          if (!replyText) {
+            alert('Reply cannot be empty!');
+            return;
+          }
+          try {
+            let nickname = 'Anonymous';
+            const nicknameInput = document.getElementById('nickname') || document.getElementById('update-nickname') || document.getElementById('relationships-nickname') || document.getElementById('exam-nickname');
+            if (nicknameInput && nicknameInput.value.trim() !== '') {
+              nickname = nicknameInput.value.trim();
+            }
+            await db.collection(collectionName).doc(docId).collection('comments').add({
+              text: replyText,
+              nickname: nickname,
+              parentCommentId: comment.id,
+              createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            replyTextarea.value = '';
+            replyInputContainer.style.display = 'none';
+            replyBtn.style.display = 'inline';
+          } catch (error) {
+            console.error('Error posting reply:', error);
+            alert('Failed to post reply.');
+          }
+        });
+
+        // Render replies recursively
+        if (comment.replies.length > 0) {
+          renderComments(comment.replies, container, level + 1);
+        }
+      });
+    }
+
+    renderComments(rootComments, commentList);
   });
 
   // Handle like button click
