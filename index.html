@@ -64,16 +64,16 @@
   </nav>
 </header>
 
-<!-- Confessions Section -->
+  <!-- Confessions Section -->
 <section id="confessions-section" class="content-section active">
   <h2>Confessions</h2>
   <button onclick="toggleForm('confessions-form')">Post Confession</button>
   <div id="confessions-form" style="display: none;">
-    <form id="confession-form">
+    <form id="confession-form" enctype="multipart/form-data">
       <input type="text" id="confession-title" placeholder="Title" required />
       <input type="text" id="nickname" placeholder="Your nickname (optional)" />
       <textarea id="confession-text" placeholder="Write your confession here..." required></textarea>
-      <input type="file" id="image-upload" accept="image/*" />
+      <input type="file" id="image-upload" accept="image/*,image/gif" />
       <input type="text" id="gif-url" placeholder="GIF URL" />
       <button type="submit">Post Confession</button>
     </form>
@@ -136,7 +136,8 @@
     <div class="modal-content">
       <span id="close-ask-modal" class="close">&times;</span>
       <form id="ask-question-form-modal">
-        <input type="text" id="question-text-modal" placeholder="Ask your anonymous question..." required />
+        <input type="text" id="question-title-modal" placeholder="Title (optional)" />
+        <input type="text" id="question-text-modal" placeholder="Ask your question..." required />
         <button type="submit">Ask Question</button>
       </form>
     </div>
