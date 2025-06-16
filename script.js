@@ -230,55 +230,7 @@ function loadQuestions() {
   });
 }
 
-// Post Confession Logic
-document.getElementById('confession-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
 
-  const title = document.getElementById('confession-title').value.trim() || 'Untitled';
-  const nickname = document.getElementById('nickname').value.trim() || 'Anonymous';
-  const confessionText = document.getElementById('confession-text').value.trim();
-  const imageFile = document.getElementById('image-upload').files[0];
-  const gifUrl = document.getElementById('gif-url').value.trim();
-
-  if (!confessionText) {
-    alert('Confession cannot be empty!');
-    return;
-  }
-
-  let imageUrl = '';
-  if (imageFile) {
-    const storageRef = firebase.storage().ref('confessionImages/' + imageFile.name);
-    await storageRef.put(imageFile);
-    imageUrl = await storageRef.getDownloadURL();
-  }
-
-  try {
-    await db.collection('confessions').add({
-      title: title,
-      text: confessionText,
-      nickname: nickname,
-      imageUrl: imageUrl,
-      gifUrl: gifUrl,
-      upvotes: 0,
-      downvotes: 0,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-
-    document.getElementById('confession-title').value = '';
-    document.getElementById('nickname').value = '';
-    document.getElementById('confession-text').value = '';
-    document.getElementById('image-upload').value = '';
-    document.getElementById('gif-url').value = '';
-
-    alert("Confession posted successfully!");
-    loadConfessions();  // Refresh the list of confessions
-  } catch (error) {
-    console.error('Error posting confession:', error);
-    alert('Failed to post confession.');
-  }
-});
-
-// Load Confessions
 function loadConfessions() {
   const confessionsList = document.getElementById('confessions-list');
   confessionsList.innerHTML = '';
@@ -296,15 +248,204 @@ function loadConfessions() {
       div.innerHTML = `
         <div class="post" data-id="${doc.id}">
           <div class="post-header clickable">${confession.title || 'Untitled'}</div>
-      <small class="post-nickname-small">Posted by: <strong>${confession.nickname && confession.nickname.trim() !== '' ? confession.nickname : 'Anonymous'}</strong></small>
+          <small class="post-nickname-small">Posted by: <strong>${confession.nickname && confession.nickname.trim() !== '' ? confession.nickname : 'Anonymous'}</strong></small>
         </div>
       `;
       confessionsList.appendChild(div);
       div.querySelector('.post-header').addEventListener('click', () => {
-        openPostDetailView('confessions', doc.id);
+        // Navigate to confession.html with the confession id to open modal there
+        window.location.href = `confession.html?id=${doc.id}`;
       });
     });
   });
+}
+
+// Load confession data into the new modal
+async function loadConfessionData(confessionId) {
+  const confessionTitle = document.getElementById('confessionTitle');
+  const confessionText = document.getElementById('confessionText');
+  const confessionMedia = document.getElementById('confessionMedia');
+  const likeCountSpan = document.getElementById('likeCount');
+  const dislikeCountSpan = document.getElementById('dislikeCount');
+  const commentList = document.getElementById('commentList');
+
+  const docRef = db.collection('confessions').doc(confessionId);
+  const docSnap = await docRef.get();
+
+  if (docSnap.exists) {
+    const data = docSnap.data();
+    confessionTitle.textContent = data.title || 'Untitled';
+    confessionText.textContent = data.text || '';
+
+    // Clear previous media
+    confessionMedia.innerHTML = '';
+    if (data.imageUrl) {
+      const img = document.createElement('img');
+      img.src = data.imageUrl;
+      img.style.maxWidth = '100%';
+      img.style.borderRadius = '12px';
+      img.style.marginBottom = '15px';
+      confessionMedia.appendChild(img);
+    }
+    if (data.gifUrl) {
+      const gif = document.createElement('img');
+      gif.src = data.gifUrl;
+      gif.style.maxWidth = '100%';
+      gif.style.borderRadius = '12px';
+      gif.style.marginBottom = '15px';
+      confessionMedia.appendChild(gif);
+    }
+
+    likeCountSpan.textContent = data.upvotes || 0;
+    dislikeCountSpan.textContent = data.downvotes || 0;
+
+    // Load comments
+    loadComments(confessionId);
+
+    // Setup like/dislike button states and handlers
+    setupLikeDislikeButtons(confessionId, data);
+  } else {
+    confessionTitle.textContent = 'Confession not found';
+    confessionText.textContent = '';
+    confessionMedia.innerHTML = '';
+    likeCountSpan.textContent = '0';
+    dislikeCountSpan.textContent = '0';
+    commentList.innerHTML = '';
+  }
+}
+
+// Load comments for a confession in the modal
+function loadComments(confessionId) {
+  const commentList = document.getElementById('commentList');
+  commentList.innerHTML = 'Loading comments...';
+
+  const commentsQuery = db.collection('confessions').doc(confessionId).collection('comments').orderBy('createdAt', 'asc');
+  commentsQuery.onSnapshot(snapshot => {
+    commentList.innerHTML = '';
+    if (snapshot.empty) {
+      commentList.innerHTML = '<p>No comments yet. Be the first to comment!</p>';
+      return;
+    }
+    snapshot.forEach(doc => {
+      const comment = doc.data();
+      const commentElem = document.createElement('div');
+      commentElem.classList.add('comment');
+      commentElem.innerHTML = `<strong>${comment.username || 'Anonymous'}:</strong> ${comment.text}`;
+      commentList.appendChild(commentElem);
+    });
+    commentList.scrollTop = commentList.scrollHeight;
+  });
+}
+
+// Setup like and dislike buttons in the modal
+function setupLikeDislikeButtons(confessionId, data) {
+  const likeBtn = document.getElementById('likeBtn');
+  const dislikeBtn = document.getElementById('dislikeBtn');
+  const likeCountSpan = document.getElementById('likeCount');
+  const dislikeCountSpan = document.getElementById('dislikeCount');
+
+  let currentUserId = localStorage.getItem('userId');
+  let userLiked = data.likedBy?.includes(currentUserId) || false;
+  let userDisliked = data.dislikedBy?.includes(currentUserId) || false;
+
+  function updateButtons() {
+    likeBtn.setAttribute('aria-pressed', userLiked);
+    dislikeBtn.setAttribute('aria-pressed', userDisliked);
+    if (userLiked) {
+      likeBtn.classList.add('liked');
+    } else {
+      likeBtn.classList.remove('liked');
+    }
+    if (userDisliked) {
+      dislikeBtn.classList.add('liked');
+    } else {
+      dislikeBtn.classList.remove('liked');
+    }
+  }
+
+  updateButtons();
+
+  likeBtn.onclick = async () => {
+    if (!currentUserId) {
+      alert('Please log in to like confessions.');
+      return;
+    }
+    const docRef = db.collection('confessions').doc(confessionId);
+    const docSnap = await docRef.get();
+    if (!docSnap.exists) return;
+
+    const data = docSnap.data();
+    let upvotes = data.upvotes || 0;
+    let downvotes = data.downvotes || 0;
+    let likedBy = data.likedBy || [];
+    let dislikedBy = data.dislikedBy || [];
+
+    if (userLiked) {
+      upvotes--;
+      likedBy = likedBy.filter(uid => uid !== currentUserId);
+      userLiked = false;
+    } else {
+      upvotes++;
+      likedBy.push(currentUserId);
+      userLiked = true;
+      if (userDisliked) {
+        downvotes--;
+        dislikedBy = dislikedBy.filter(uid => uid !== currentUserId);
+        userDisliked = false;
+      }
+    }
+
+    await docRef.update({
+      upvotes,
+      downvotes,
+      likedBy,
+      dislikedBy
+    });
+    likeCountSpan.textContent = upvotes;
+    dislikeCountSpan.textContent = downvotes;
+    updateButtons();
+  };
+
+  dislikeBtn.onclick = async () => {
+    if (!currentUserId) {
+      alert('Please log in to dislike confessions.');
+      return;
+    }
+    const docRef = db.collection('confessions').doc(confessionId);
+    const docSnap = await docRef.get();
+    if (!docSnap.exists) return;
+
+    const data = docSnap.data();
+    let upvotes = data.upvotes || 0;
+    let downvotes = data.downvotes || 0;
+    let likedBy = data.likedBy || [];
+    let dislikedBy = data.dislikedBy || [];
+
+    if (userDisliked) {
+      downvotes--;
+      dislikedBy = dislikedBy.filter(uid => uid !== currentUserId);
+      userDisliked = false;
+    } else {
+      downvotes++;
+      dislikedBy.push(currentUserId);
+      userDisliked = true;
+      if (userLiked) {
+        upvotes--;
+        likedBy = likedBy.filter(uid => uid !== currentUserId);
+        userLiked = false;
+      }
+    }
+
+    await docRef.update({
+      upvotes,
+      downvotes,
+      likedBy,
+      dislikedBy
+    });
+    likeCountSpan.textContent = upvotes;
+    dislikeCountSpan.textContent = downvotes;
+    updateButtons();
+  };
 }
 
 // --- College Updates Section ---
@@ -627,6 +768,7 @@ window.addEventListener('click', (event) => {
 document.getElementById('ask-question-form-modal').addEventListener('submit', async (e) => {
   e.preventDefault();
 
+  const questionTitle = document.getElementById('question-title-modal').value.trim();
   const questionText = document.getElementById('question-text-modal').value.trim();
   if (!questionText) {
     alert('Please ask a question!');
@@ -635,11 +777,13 @@ document.getElementById('ask-question-form-modal').addEventListener('submit', as
 
   try {
     await db.collection('questions').add({
+      title: questionTitle || 'Untitled',
       question: questionText,
       upvotes: 0,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
 
+    document.getElementById('question-title-modal').value = '';
     document.getElementById('question-text-modal').value = '';
     alert("Question posted successfully!");
     document.getElementById('ask-modal').style.display = 'none';
@@ -892,11 +1036,6 @@ function setupPostInteractions(postElement, collectionName, docId) {
 
   // Load existing comments for this post
   db.collection(collectionName).doc(docId).collection('comments').orderBy('createdAt', 'asc').onSnapshot(snapshot => {
-    // Use correct comment list container based on context
-    let commentList = document.querySelector('.comment-list');
-    if (!commentList) {
-      commentList = document.getElementById('overlay-comment-list') || document.getElementById('right-panel-comment-list');
-    }
     if (!commentList) {
       console.error('Comment list container not found');
       return;
@@ -927,7 +1066,6 @@ function setupPostInteractions(postElement, collectionName, docId) {
 
     // Recursive function to render comments and replies
     function renderComments(comments, container, level = 0) {
-      console.log(`Rendering ${comments.length} comments at level ${level}`);
       comments.forEach(comment => {
         const commentDiv = document.createElement('div');
         commentDiv.classList.add('comment');
