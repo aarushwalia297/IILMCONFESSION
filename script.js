@@ -113,10 +113,17 @@ function showSection(sectionId) {
   }
 }
 
-// Toggle Post Form Visibility
 function toggleForm(formId) {
   const form = document.getElementById(formId);
-  form.style.display = form.style.display === 'block' ? 'none' : 'block';
+  if (!form) {
+    console.error(`toggleForm: No element found with id '${formId}'`);
+    return;
+  }
+  if (form.style.display === 'block' || form.style.display === '') {
+    form.style.display = 'none';
+  } else {
+    form.style.display = 'block';
+  }
 }
 
 // Load Poll Results
@@ -185,7 +192,6 @@ function loadPollResults() {
   });
 }
 
-// Update loadQuestions to show question text as post header instead of "Anonymous"
 function loadQuestions() {
   const questionsList = document.getElementById('questions-list');
   questionsList.innerHTML = '';
@@ -224,7 +230,7 @@ function loadQuestions() {
       const commentsSection = div.querySelector('.comments-section');
 
       postHeader.addEventListener('click', () => {
-        openPostDetailView('collegeUpdates', doc.id);
+        openPostDetailView('questions', doc.id);
       });
     });
   });
@@ -245,11 +251,10 @@ function loadConfessions() {
     snapshot.forEach(doc => {
       const confession = doc.data();
       const div = document.createElement('div');
+      div.classList.add('post'); // Add post class for grid layout
       div.innerHTML = `
-        <div class="post" data-id="${doc.id}">
-          <div class="post-header clickable">${confession.title || 'Untitled'}</div>
-          <small class="post-nickname-small">Posted by: <strong>${confession.nickname && confession.nickname.trim() !== '' ? confession.nickname : 'Anonymous'}</strong></small>
-        </div>
+        <div class="post-header clickable">${confession.title || 'Untitled'}</div>
+        <small class="post-nickname-small">Posted by: <strong>${confession.nickname && confession.nickname.trim() !== '' ? confession.nickname : 'Anonymous'}</strong></small>
       `;
       confessionsList.appendChild(div);
       div.querySelector('.post-header').addEventListener('click', () => {
@@ -646,6 +651,9 @@ window.onload = function() {
   loadConfessions();  // Load confessions when the page loads
   loadCollegeUpdates(); // Load college updates when the page loads
   loadRelationshipsUpdates(); // Load relationship updates when the page loads
+  loadExamConfessions(); // Load exam confessions when the page loads
+  loadQuestions(); // Load questions when the page loads
+  loadPollResults(); // Load poll results when the page loads
 };
 // --- Exam Confessions Section ---
 document.getElementById('exam-confession-form').addEventListener('submit', async (e) => {
@@ -684,6 +692,49 @@ document.getElementById('exam-confession-form').addEventListener('submit', async
   } catch (error) {
     console.error('Error posting exam confession:', error);
     alert('Failed to post exam confession.');
+  }
+});
+
+// --- Main Confession Posting Handler ---
+document.getElementById('confession-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const title = document.getElementById('confession-title').value.trim() || 'Untitled';
+  const nickname = document.getElementById('nickname').value.trim() || 'Anonymous';
+  const text = document.getElementById('confession-text').value.trim();
+  const imageFile = document.getElementById('image-upload').files[0];
+
+  if (!text) {
+    alert('Confession text cannot be empty!');
+    return;
+  }
+
+  let imageUrl = '';
+  if (imageFile) {
+    const storageRef = firebase.storage().ref('confessionImages/' + imageFile.name);
+    await storageRef.put(imageFile);
+    imageUrl = await storageRef.getDownloadURL();
+  }
+
+  try {
+    await db.collection('confessions').add({
+      title: title,
+      text: text,
+      nickname: nickname,
+      imageUrl: imageUrl,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    document.getElementById('confession-title').value = '';
+    document.getElementById('nickname').value = '';
+    document.getElementById('confession-text').value = '';
+    document.getElementById('image-upload').value = '';
+
+    alert("Confession posted successfully!");
+    loadConfessions();  // Refresh the list of confessions
+  } catch (error) {
+    console.error('Error posting confession:', error);
+    alert('Failed to post confession.');
   }
 });
 
