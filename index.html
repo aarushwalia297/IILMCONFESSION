@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -50,8 +51,8 @@
     </div>
   </div>
 
-<!-- Navigation Links -->
-<header>
+<!-- Navigation Links and Main Content Container -->
+<div class="main-container">
   <nav>
     <ul>
       <li><a href="#" onclick="showSection('confessions-section')">Confessions</a></li>
@@ -62,7 +63,6 @@
       <li><a href="#" onclick="showSection('polls-section')">Anonymous Poll</a></li>
     </ul>
   </nav>
-</header>
 
   <!-- Confessions Section -->
 <section id="confessions-section" class="content-section active">
@@ -78,7 +78,9 @@
       <button type="submit">Post Confession</button>
     </form>
   </div>
-  <div id="confessions-list" style="display:none;"></div>
+  <div class="posts-container">
+    <div id="confessions-list" style="display:none;"></div>
+  </div>
 </section>
 
 <!-- College Updates Section -->
