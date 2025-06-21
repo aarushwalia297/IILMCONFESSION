@@ -54,7 +54,8 @@
       margin-bottom: 5px;
     }
     input[type="text"],
-    input[type="password"] {
+    input[type="password"],
+    input[type="tel"] {
       padding: 12px 15px;
       border-radius: 4px;
       border: none;
@@ -66,7 +67,8 @@
       transition: background-color 0.3s ease;
     }
     input[type="text"]:focus,
-    input[type="password"]:focus {
+    input[type="password"]:focus,
+    input[type="tel"]:focus {
       background-color: #2c2f33;
       box-shadow: 0 0 0 2px #5865f2;
     }
@@ -129,6 +131,7 @@
       <label for="login-password">Password</label>
       <input type="password" id="login-password" name="login-password" placeholder="Enter your password" required autocomplete="current-password" />
       <button type="submit" aria-label="Log In">Log In</button>
+      <p><a href="#" id="forgot-password-link" class="forgot-password">Forgot Password?</a></p>
       <p class="register-link">Don't have an account? <a href="#" id="google-signup-link" aria-label="Sign up with Google">Sign up with Google</a></p>
     </form>
 
@@ -141,6 +144,22 @@
       <label for="profile-password">Password</label>
       <input type="password" id="profile-password" name="profile-password" placeholder="Create a password" required />
       <button type="submit">Save Profile</button>
+    </form>
+
+    <form id="forgot-password-form" aria-label="Forgot password form" style="display:none; margin-top: 20px;">
+      <h2>Reset Password</h2>
+      <label for="forgot-username">Username</label>
+      <input type="text" id="forgot-username" name="forgot-username" placeholder="Enter your username" required />
+
+      <label for="forgot-class">Class Name</label>
+      <input type="text" id="forgot-class" name="forgot-class" placeholder="Enter your class name" required />
+
+      <label for="new-password">New Password</label>
+      <input type="password" id="new-password" name="new-password" placeholder="Enter new password" />
+
+      <button type="submit">Reset Password</button>
+
+      <p><a href="#" id="cancel-forgot-password" style="color:#5865f2; cursor:pointer; text-decoration: underline;">Cancel</a></p>
     </form>
   </div>
 
@@ -167,7 +186,10 @@
 
     const loginForm = document.getElementById('login-form');
     const profileSetupForm = document.getElementById('profile-setup-form');
+    const forgotPasswordForm = document.getElementById('forgot-password-form');
     const googleSignupLink = document.getElementById('google-signup-link');
+    const forgotPasswordLink = document.getElementById('forgot-password-link');
+    const cancelForgotPassword = document.getElementById('cancel-forgot-password');
 
     // Show profile setup form and hide login form
     function showProfileSetup() {
@@ -288,6 +310,59 @@
       } catch (error) {
         console.error('Error during login:', error);
         alert('Failed to login.');
+      }
+    });
+
+    // Forgot password link click handler
+    forgotPasswordLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      loginForm.style.display = 'none';
+      forgotPasswordForm.style.display = 'flex';
+    });
+
+    // Cancel forgot password
+    cancelForgotPassword.addEventListener('click', (e) => {
+      e.preventDefault();
+      forgotPasswordForm.style.display = 'none';
+      loginForm.style.display = 'flex';
+    });
+
+    // Forgot password form submission with class verification
+    forgotPasswordForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('forgot-username').value.trim().toLowerCase();
+      const className = document.getElementById('forgot-class').value.trim();
+      const newPassword = document.getElementById('new-password').value.trim();
+
+      if (!username || !className || !newPassword) {
+        alert('Please fill in all fields.');
+        return;
+      }
+
+      try {
+        // Verify username and className match
+        const userQuery = await db.collection('userProfiles')
+          .where('username', '==', username)
+          .where('className', '==', className)
+          .get();
+
+        if (userQuery.empty) {
+          alert('Username and class name do not match.');
+          return;
+        }
+
+        // Update password for the user
+        const userDoc = userQuery.docs[0];
+        await db.collection('userProfiles').doc(userDoc.id).update({
+          password: newPassword
+        });
+
+        alert('Password reset successfully! Please login with your new password.');
+        forgotPasswordForm.style.display = 'none';
+        loginForm.style.display = 'flex';
+      } catch (error) {
+        console.error('Error resetting password:', error);
+        alert('Failed to reset password.');
       }
     });
   </script>
